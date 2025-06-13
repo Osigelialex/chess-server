@@ -3,6 +3,7 @@ import prisma from "../database/index.database";
 import { CustomError } from "../utils/error.utils";
 import { hashPassword, verifyPassword } from "../utils/password.utils";
 import { generateToken, generateRefresh } from "../utils/token.utils";
+import { generateRandomAvatar } from "../utils/avatar.utils";
 
 export default class AuthService {
 
@@ -26,13 +27,23 @@ export default class AuthService {
 
     const passwordHash = await hashPassword(password);
 
-    const user = await prisma.user.create({
-      data: {
-        email: email,
-        username: username,
-        password: passwordHash
-      }
-    });
+    const [user] = await prisma.$transaction([
+      prisma.user.create({
+        data: {
+          email: email,
+          username: username,
+          password: passwordHash
+        }
+      }),
+      prisma.profile.create({
+        data: {
+          avatar: generateRandomAvatar(),
+          user: {
+            connect: { email }
+          }
+        }
+      })
+    ]);
 
     const accessToken = generateToken(user.id);
     const refreshToken = generateRefresh(user.id);
