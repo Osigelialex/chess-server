@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { ValidationError } from '../utils/error.utils';
+import { ValidationError } from '../utils/exceptions';
 
 export interface AppError extends Error {
   status?: number;
