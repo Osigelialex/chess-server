@@ -12,6 +12,7 @@ interface Config {
   redisPassword: string | undefined;
   redisDb: number;
   redisUrl: string;
+  environment: string;
 }
 
 const config: Config = {
@@ -24,6 +25,7 @@ const config: Config = {
   redisPassword: process.env.REDIS_PASSWORD || undefined,
   redisDb: Number(process.env.REDIS_DB) || 0,
   redisUrl: process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`,
+  environment: process.env.ENVIRONMENT || 'dev'
 };
 
 export default config;

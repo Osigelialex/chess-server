@@ -6,6 +6,10 @@ import { ValidationError } from '../utils/exceptions';
 export const validateDto = (dtoClass: any) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (!req.body || typeof req.body !== 'object') {
+        req.body = {};
+      }
+
       const dto = plainToInstance(dtoClass, req.body);
       const errors = await validate(dto);
 

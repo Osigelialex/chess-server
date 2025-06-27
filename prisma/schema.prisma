@@ -20,7 +20,6 @@ model User {
   email           String      @unique
   password        String
   rating          String?
-  avatar          String
   bio             String?
   createdAt       DateTime    @default(now())
   winningGames    Game[]      @relation("Winner")
@@ -31,16 +30,16 @@ model User {
 model Game {
   id              String      @id @default(uuid()) @db.Uuid
   boardState      String
-  moves           String
+  moves           String?      
   status          Status      @default(ACTIVE)
   timeControl     String
   createdAt       DateTime    @default(now())
-  whitePlayer     User        @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
-  whitePlayerId   String      @db.Uuid
-  blackPlayer     User        @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
-  blackPlayerId   String      @db.Uuid
-  winner          User        @relation("Winner", fields: [winnerId], references: [id])
-  winnerId        String      @db.Uuid
+  whitePlayer     User?        @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  whitePlayerId   String?     @db.Uuid
+  blackPlayer     User?        @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  blackPlayerId   String?     @db.Uuid
+  winner          User?        @relation("Winner", fields: [winnerId], references: [id])
+  winnerId        String?     @db.Uuid
 }
 
 enum Status {

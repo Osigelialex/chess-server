@@ -1,11 +1,11 @@
-import { LoginDto, RefreshTokenDto, SignupDto } from "../dto/auth.dto";
+import { LoginDto, RefreshTokenDto, SignupDto, UserResponseDto } from "../dto/auth.dto";
 import prisma from "../database";
 import { BadRequestError, ServerError, NotFoundError, UnauthorizedError } from "../utils/exceptions";
-import _ from "lodash";
 import { redisClient } from "../redis";
 import { DecodedToken } from "../interfaces";
+import { plainToInstance } from "class-transformer";
 import { hashPassword, verifyPassword, 
-  generateRandomAvatar, generateToken, generateRefresh, verifyToken } from "../utils/helpers";
+  generateToken, generateRefresh, verifyToken } from "../utils/helpers";
 
 export default class AuthService {
 
@@ -34,7 +34,6 @@ export default class AuthService {
         email: email,
         username: username,
         password: passwordHash,
-        avatar: generateRandomAvatar()
       }
     });
 
@@ -103,7 +102,7 @@ export default class AuthService {
       throw new NotFoundError('User not found');
     }
 
-    return _.omit(user, ['password', 'id']);
+    return plainToInstance(UserResponseDto, user);
   }
 
   public async logout(dto: RefreshTokenDto) {
