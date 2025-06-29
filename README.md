@@ -44,7 +44,7 @@ A backend server for managing online chess games, player authentication, and rea
 
 ## Roadmap / TODO
 - [x] Authentication and authorization
-- [x] Socket setup with some chess logic
+- [x] Socket setup
 - [ ] Complete core chess logic and move validation
 - [ ] Add ranking system
 - [ ] Implement game history and statistics
