@@ -43,8 +43,10 @@ A backend server for managing online chess games, player authentication, and rea
 5. Start the server: `npm run dev`
 
 ## Roadmap / TODO
+- [x] Authentication and authorization
+- [x] Socket setup with some chess logic
 - [ ] Complete core chess logic and move validation
-- [ ] Add user profile and ranking system
+- [ ] Add ranking system
 - [ ] Implement game history and statistics
 - [ ] Add deployment instructions
 
