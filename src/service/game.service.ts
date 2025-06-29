@@ -1,7 +1,7 @@
 import { CreateGameDto, RetrieveGameResponseDto } from "../dto/game.dto";
 import prisma from "../database";
 import { ServerError, NotFoundError, BadRequestError } from "../utils/exceptions";
-import { constants } from "../utils/constants";
+import { chessConstants } from "../utils/constants";
 import { plainToInstance } from "class-transformer";
 import { GameCreatedResponseDto } from "../dto/game.dto";
 import { HandleErrors } from "../utils/decorators";
@@ -21,7 +21,7 @@ export default class GameService {
   public async createGame(userId: string, dto: CreateGameDto) {
     const { timeControl, sideToPlay } = dto;
 
-    const boardState = constants.INITIAL_FEN_POSITION;
+    const boardState = chessConstants.INITIAL_FEN_POSITION;
     const gameData = {
       timeControl: timeControl,
       boardState: boardState
@@ -80,7 +80,7 @@ export default class GameService {
     } else if (game.blackPlayerId === null) {
       game.blackPlayerId = user.id;
     } else {
-      throw new Error("Game is already full.");
+      throw new BadRequestError("Game is already full.");
     }
 
     await prisma.game.update({
