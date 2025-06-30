@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { chessConstants } from "../utils/constants";
+import { redisClient } from "../redis";
 import prisma from "../database";
 
 const gameSocket = (io: Server, socket: Socket) => {
@@ -46,6 +47,11 @@ const gameSocket = (io: Server, socket: Socket) => {
       const game = await prisma.game.findUnique({ where: { id: gameId }});
       if (!game) {
         socket.emit("gameError", { message: 'Game not found' });
+        return;
+      }
+
+      if (game.status === 'ACTIVE') {
+        socket.emit("gameError", { message: 'Game is already active' });
         return;
       }
 
@@ -119,6 +125,15 @@ const gameSocket = (io: Server, socket: Socket) => {
         return;
       }
 
+      const otherPlayer = await prisma.user.findUnique({
+        where: { id: otherPlayerId }
+      });
+
+      if (!otherPlayer) {
+        socket.emit("gameError", { message: "Opponent not found" });
+        return;
+      }
+
       const newRating = Math.max(user.rating - 20, 100);
 
       await prisma.$transaction([
@@ -148,11 +163,177 @@ const gameSocket = (io: Server, socket: Socket) => {
         newRating: newRating
       });
 
-      socket.leave(gameId);
+      io.to(gameId).emit("gameEnded", {
+        message: `Game has ended. ${user.username} resigned. ${otherPlayer.username} is the winner.`,
+      });
+
+      io.in(gameId).socketsLeave(gameId);
 
     } catch (err: any) {
       socket.emit('gameError', { message: 'Something unexpected happened when resigning from the game' });
     }
+  });
+
+  /**
+   * Handles the draw offer event.
+   * This event is triggered when a player offers a draw.
+   * It checks if the game exists, if the user is a player in that game,
+   * and if the game is active. If all conditions are met, it sets a draw offer
+   * in Redis and emits a 'drawOffer' event to all players in the game room.
+  */
+  socket.on('drawOffer', async (data: { gameId: string }) => {
+    try {
+      const { gameId } = data;
+      const game = await prisma.game.findUnique({ where: { id: gameId }});
+      if (!game) {
+        socket.emit('gameError', { message: 'Game not found' });
+        return;
+      }
+
+      if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
+        socket.emit('gameError', { message: 'Game is not active' });
+        return;
+      }
+
+      const userId = socket.data.userId;
+      if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
+        socket.emit("gameError", { message: 'You are not a player in this game' });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId }
+      });
+
+      if (!user) {
+        socket.emit("gameError", { message: "User not found" });
+        return;
+      }
+
+      await redisClient.set(`drawOffer:${gameId}`, userId, 'EX', chessConstants.DRAW_OFFER_TIMEOUT);
+
+      io.to(gameId).emit("drawOffer", {
+        message: `${user.username} has offered a draw`,
+      });
+
+    } catch (err: any) {
+      socket.emit('gameError', { message: 'Something unexpected happened when offering a draw' });
+    }
+  });
+
+  /**
+   * Handles accepting a draw offer.
+   * This event is triggered when a player accepts a draw offer.
+   * It checks if the game exists, if the user is a player in that game,
+   * and if the game is active. If all conditions are met, it updates the game status to 'DRAW',
+   * removes the draw offer from Redis, and emits a 'drawAccepted' event to all players in the game room.
+   * Finally, it leaves the game room for both players.
+   */
+  socket.on('acceptDraw', async (data: { gameId: string }) => {
+    const { gameId } = data;
+    const game = await prisma.game.findUnique({ where: { id: gameId }});
+    if (!game) {
+      socket.emit('gameError', { message: 'Game not found' });
+      return;
+    }
+
+    if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
+      socket.emit('gameError', { message: 'Game is not active' });
+      return;
+    }
+
+    const userId = socket.data.userId;
+    if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
+      socket.emit("gameError", { message: 'You are not a player in this game' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      socket.emit("gameError", { message: "User not found" });
+      return;
+    }
+
+    const drawOffer = await redisClient.get(`drawOffer:${gameId}`);
+    if (!drawOffer) {
+      socket.emit('gameError', { message: 'No draw offer found' });
+      return;
+    }
+
+    await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        status: 'DRAW',
+      }
+    });
+
+    await redisClient.del(`drawOffer:${gameId}`);
+
+    io.to(gameId).emit("drawAccepted", {
+      message: `Draw accepted by ${user.username}`,
+    });
+
+    io.to(gameId).emit("gameEnded", {
+      message: `Game has ended in a draw`,
+    });
+
+    io.in(gameId).socketsLeave(gameId);
+  });
+
+  /**
+   * Handles rejecting a draw offer.
+   * This event is triggered when a player rejects a draw offer.
+   * It checks if the game exists, if the user is a player in that game,
+   * and if the game is active. If all conditions are met, it removes the draw offer from Redis
+   * and emits a 'drawRejected' event to all players in the game room.
+   */
+  socket.on('rejectDraw', async (data: { gameId: string }) => {
+    const { gameId } = data;
+    const game = await prisma.game.findUnique({ where: { id: gameId }});
+    if (!game) {
+      socket.emit('gameError', { message: 'Game not found' });
+      return;
+    }
+
+    if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
+      socket.emit('gameError', { message: 'Game is not active' });
+      return;
+    }
+
+    const userId = socket.data.userId;
+    if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
+      socket.emit("gameError", { message: 'You are not a player in this game' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      socket.emit("gameError", { message: "User not found" });
+      return;
+    }
+
+    const drawOffer = await redisClient.get(`drawOffer:${gameId}`);
+    if (!drawOffer) {
+      socket.emit('gameError', { message: 'No draw offer found' });
+      return;
+    }
+
+    if (drawOffer === userId) {
+      socket.emit('gameError', { message: 'You cannot reject your own draw offer' });
+      return;
+    }
+
+    await redisClient.del(`drawOffer:${gameId}`);
+
+    io.to(gameId).emit("drawRejected", {
+      message: `Draw offer rejected by ${user.username}`,
+    });
   });
 };
 
