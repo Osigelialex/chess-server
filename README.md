@@ -4,10 +4,10 @@ A backend server for managing online chess games, player authentication, and rea
 
 ## Features
 - User authentication (login, registration)
-- Real-time chess gameplay via WebSockets
-- Game state management and persistence
+- Real-time chess gameplay via WebSockets (move validation, checkmate, draw, resign, draw offers/accept/reject)
+- Game state management and persistence (with Prisma ORM and PostgreSQL)
 - RESTful API endpoints for game and user management
-- Redis integration for session and state management
+- Redis integration for session, draw offers, and state management
 - Modular architecture for scalability
 
 ## Technologies Used
@@ -42,12 +42,32 @@ A backend server for managing online chess games, player authentication, and rea
 4. Run database migrations: `npx prisma migrate dev`
 5. Start the server: `npm run dev`
 
+
+## WebSocket Events
+
+### Game Events
+- `playerReady`: Player joins and marks themselves as ready
+- `startGame`: Starts the game when both players are ready
+- `move`: Make a chess move (validates move, updates state, handles checkmate/draw)
+- `resign`: Player resigns, opponent wins, ratings updated
+- `drawOffer`: Player offers a draw (stored in Redis, notifies both players)
+- `acceptDraw`: Accept a draw offer (game ends in draw, cleans up state)
+- `rejectDraw`: Reject a draw offer (notifies both players)
+
+### Error Handling
+- All events emit `gameError` on failure with a descriptive message
+
 ## Roadmap / TODO
 - [x] Authentication and authorization
 - [x] Socket setup
-- [ ] Complete core chess logic and move validation
-- [ ] Add ranking system
+- [x] Core chess logic, move validation, resign, draw offers
+- [x] Rating system (Elo-like, with min/max bounds)
 - [ ] Implement game history and statistics
 - [ ] Add deployment instructions
 
-Feel free to suggest features as the project grows!
+
+## Notes
+- Draw offers are managed with Redis and expire after a timeout
+- Game state is validated and updated on every move
+- Ratings are updated on checkmate and resignation
+- All socket events require the user to be a player in the game

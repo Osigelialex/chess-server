@@ -3,4 +3,6 @@ export const chessConstants = {
   DEFAULT_TIME_CONTROL: '5+0',
   RATING_INCREMENT: 20,
   DRAW_OFFER_TIMEOUT: 30,
+  MIN_ELO_RATING: 100,
+  MAX_ELO_RATING: 3500,
 }

@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { chessConstants } from "../utils/constants";
 import { redisClient } from "../redis";
 import prisma from "../database";
+import { Chess } from "chess.js";
 
 const gameSocket = (io: Server, socket: Socket) => {
 
@@ -50,6 +51,11 @@ const gameSocket = (io: Server, socket: Socket) => {
         return;
       }
 
+      if (game.status !== 'WAITING' && game.status !== 'ACTIVE') {
+        socket.emit("gameError", { message: 'Game has already ended' });
+        return;
+      }
+
       if (game.status === 'ACTIVE') {
         socket.emit("gameError", { message: 'Game is already active' });
         return;
@@ -83,6 +89,149 @@ const gameSocket = (io: Server, socket: Socket) => {
       io.to(gameId).emit("gameStarted", { message: `Game has been started by ${user.username}` });
     } catch (err: any) {
       socket.emit("gameError", { message: "Something unexpected happened when starting the game" });
+    }
+  });
+
+  /**
+   * Handles the move event.
+   * Validates the move, updates the game state, and notifies players.
+   * Handles checkmate, draw, and invalid moves.
+  */
+  socket.on('move', async (data: { gameId: string, move: string }) => {
+    try {
+      const { gameId, move } = data;
+
+      const game = await prisma.game.findUnique({ where: { id: gameId }});
+      if (!game) {
+        socket.emit("gameError", { message: 'Game not found' });
+        return;
+      }
+
+      if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
+        socket.emit("gameError", { message: 'Game is not active' });
+        return;
+      }
+
+      const userId = socket.data.userId;
+      if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
+        socket.emit("gameError", { message: 'You are not a player in this game' });
+        return;
+      }
+
+      let chess: Chess;
+
+      try {
+        chess = new Chess(game.boardState);
+      } catch (err: any) {
+        socket.emit("gameError", { message: 'Invalid board state' });
+        return;
+      }
+
+      const playerTurn = chess.turn();
+      if ((playerTurn === 'w' && userId !== game.whitePlayerId) ||
+          (playerTurn === 'b' && userId !== game.blackPlayerId)) {
+        socket.emit("gameError", { message: 'It is not your turn to move' });
+        return;
+      }
+
+      try {
+        chess.move(move, { strict: true });
+      } catch (err: any) {
+        socket.emit("gameError", { message: 'Invalid move' });
+        return;
+      }
+
+      if (chess.isStalemate() || chess.isInsufficientMaterial() || chess.isThreefoldRepetition()) {
+        await prisma.game.update({
+          where: { id: gameId },
+          data: {
+            status: 'DRAW',
+            boardState: chess.fen()
+          }
+        });
+
+        io.to(gameId).emit("gameEnded", {
+          message: `Game has ended in a draw`,
+          boardState: chess.fen()
+        });
+
+        io.in(gameId).socketsLeave(gameId);
+        return;
+      }
+
+      if (chess.isCheckmate()) {
+        const winnerId = chess.turn() === 'w' ? game.blackPlayerId : game.whitePlayerId;
+        const loserId = chess.turn() === 'w' ? game.whitePlayerId : game.blackPlayerId;
+
+        if (!winnerId || !loserId) {
+          socket.emit("gameError", { message: "Winner or loser not found" });
+          return;
+        }
+
+        const winner = await prisma.user.findUnique({ where: { id: winnerId }});
+        const loser = await prisma.user.findUnique({ where: { id: loserId }});
+
+        if (!winner || !loser) {
+          socket.emit("gameError", { message: "Winner or loser not found" });
+          return;
+        }
+
+        const newWinnerRating = Math.min(
+          winner.rating + chessConstants.RATING_INCREMENT, chessConstants.MAX_ELO_RATING);
+        const newLoserRating = Math.max(
+          loser.rating - chessConstants.RATING_INCREMENT, chessConstants.MIN_ELO_RATING);
+
+        await prisma.$transaction([
+          prisma.game.update({
+            where: { id: gameId },
+            data: {
+              status: 'CHECKMATE',
+              winner: { connect: { id: winnerId }},
+              boardState: chess.fen()
+            }
+          }),
+          prisma.user.update({
+            where: { id: winnerId },
+            data: {
+              rating: newWinnerRating
+            }
+          }),
+          prisma.user.update({
+            where: { id: loserId },
+            data: {
+              rating: newLoserRating
+            }
+          })
+        ]);
+
+        io.to(gameId).emit("gameEnded", {
+          message: `${winner.username} won the game by checkmate!`,
+          boardState: chess.fen(),
+          winnerRating: newWinnerRating,
+          loserRating: newLoserRating
+        });
+
+        io.in(gameId).socketsLeave(gameId);
+      } else {
+        const updatedGameMoves = game.moves === null ? move : game.moves + ` ${move}`;
+
+        await prisma.game.update({
+          where: { id: gameId },
+          data: {
+            boardState: chess.fen(),
+            moves: updatedGameMoves
+          }
+        });
+
+        io.to(gameId).emit("moveMade", {
+          move,
+          boardState: chess.fen(),
+          playerTurn: chess.turn(),
+          playerChecked: chess.inCheck()
+        });
+      }
+    } catch (err: any) {
+      socket.emit("gameError", { message: 'Something unexpected happened when processing the move' });
     }
   });
 

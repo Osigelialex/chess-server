@@ -4,6 +4,7 @@ import { socketAuthMiddleware } from "../middleware/socketAuth.middleware";
 
 export const createSocketServer = (server: any) => {
   const socketServer = new Server(server, {
+    connectionStateRecovery: {},
     cors: {
       origin: "*",
       methods: ["GET", "POST"],
