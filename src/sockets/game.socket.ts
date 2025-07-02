@@ -168,8 +168,10 @@ const gameSocket = (io: Server, socket: Socket) => {
           return;
         }
 
-        const winner = await prisma.user.findUnique({ where: { id: winnerId }});
-        const loser = await prisma.user.findUnique({ where: { id: loserId }});
+        const [winner, loser] = await Promise.all([
+          prisma.user.findUnique({ where: { id: winnerId }}),
+          prisma.user.findUnique({ where: { id: loserId }})
+        ]);
 
         if (!winner || !loser) {
           socket.emit("gameError", { message: "Winner or loser not found" });
@@ -203,6 +205,13 @@ const gameSocket = (io: Server, socket: Socket) => {
             }
           })
         ]);
+
+        io.to(gameId).emit("moveMade", {
+          move,
+          boardState: chess.fen(),
+          playerTurn: chess.turn(),
+          playerChecked: chess.inCheck()
+        });
 
         io.to(gameId).emit("gameEnded", {
           message: `${winner.username} won the game by checkmate!`,
