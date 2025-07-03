@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import registerGameSocket from "./game.socket";
+import registerGuestSocket from "./guest.socket";
 import { socketAuthMiddleware } from "../middleware/socketAuth.middleware";
 
 export const createSocketServer = (server: any) => {
@@ -13,15 +14,27 @@ export const createSocketServer = (server: any) => {
     },
   });
 
-  socketServer.use(socketAuthMiddleware);
+  const authNamespace = socketServer.of('/auth');
+  const guestNamespace = socketServer.of('/guest');
 
-  socketServer.on("connection", (socket) => {
-    console.log(`New client connected: ${socket.id}`);
+  authNamespace.use(socketAuthMiddleware);
+  authNamespace.on("connection", (socket) => {
+    console.log(`[AUTH] New client connected: ${socket.id}`);
 
-    registerGameSocket(socketServer, socket);
+    registerGameSocket(authNamespace, socket);
 
     socket.on("disconnect", () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      console.log(`[AUTH] Client disconnected: ${socket.id}`);
+    });
+  });
+
+  guestNamespace.on("connection", (socket) => {
+    console.log(`[GUEST] New client connected: ${socket.id}`);
+
+    registerGuestSocket(guestNamespace, socket);
+
+    socket.on("disconnect", () => {
+      console.log(`[GUEST] Client disconnected: ${socket.id}`);
     });
   });
 
