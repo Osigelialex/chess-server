@@ -1,6 +1,6 @@
 import { verifyToken } from '../utils/helpers';
 import { Response, NextFunction } from 'express';
-import prisma from '../database';
+import prisma from '../config/db.config';
 import { AuthenticatedRequest } from '../interfaces';
 
 export const authMiddleware = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

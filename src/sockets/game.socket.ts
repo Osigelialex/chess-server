@@ -1,7 +1,7 @@
 import { Socket, Namespace } from "socket.io";
 import { chessConstants } from "../utils/constants";
-import { redisClient } from "../redis";
-import prisma from "../database";
+import { redisClient } from "../config/redis.config";
+import prisma from "../config/db.config";
 import { Chess } from "chess.js";
 
 const gameSocket = (io: Namespace, socket: Socket) => {

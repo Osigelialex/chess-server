@@ -1,5 +1,5 @@
 import { CreateGameDto, RetrieveGameResponseDto } from "../dto/game.dto";
-import prisma from "../database";
+import prisma from "../config/db.config";
 import { ServerError, NotFoundError, BadRequestError } from "../utils/exceptions";
 import { chessConstants } from "../utils/constants";
 import { plainToInstance } from "class-transformer";

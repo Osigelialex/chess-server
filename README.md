@@ -28,14 +28,12 @@ A modern backend server for online chess games, featuring real-time gameplay, pl
 ## 📁 Project Structure
 ```
 src/
-  config/        # App configs
+  config/        # Configuration files
   controllers/   # API controllers
-  database/      # DB connection logic
   dto/           # Data transfer objects
   enums/         # TypeScript enums
   interfaces/    # TypeScript interfaces
   middleware/    # Express & socket middlewares
-  redis/         # Redis client config
   routes/        # API route definitions
   service/       # Business logic
   sockets/       # WebSocket event handlers

@@ -1,7 +1,7 @@
 import { LoginDto, RefreshTokenDto, SignupDto, UserResponseDto } from "../dto/auth.dto";
-import prisma from "../database";
+import prisma from "../config/db.config";
 import { BadRequestError, ServerError, NotFoundError, UnauthorizedError } from "../utils/exceptions";
-import { redisClient } from "../redis";
+import { redisClient } from "../config/redis.config";
 import { DecodedToken } from "../interfaces";
 import { plainToInstance } from "class-transformer";
 import { hashPassword, verifyPassword, 
