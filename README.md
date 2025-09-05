@@ -8,12 +8,38 @@ A modern backend server for online chess games, featuring real-time gameplay, pl
 
 
 ## 🚀 Features
-- Secure user authentication (login, registration)
-- Real-time chess gameplay via WebSockets (move validation, checkmate, draw, resign, draw offers/accept/reject)
-- Persistent game state with Prisma ORM & PostgreSQL
-- RESTful API endpoints for user and game management
-- Redis-powered session, draw offer, and state management
-- Modular, scalable TypeScript architecture
+
+### Authentication
+- Secure user registration and login system
+- Guest mode support for casual games
+- Socket authentication middleware for secure WebSocket connections
+
+### Game Management
+- Create games with customizable time controls (default: 5+0)
+- Choose side (white/black/random) when creating a game
+- Join existing games through unique game IDs
+- Persistent game state using Prisma ORM & PostgreSQL
+
+### Gameplay
+- Real-time move validation using chess.js
+- Automatic detection of:
+  - Checkmate
+  - Stalemate
+  - Insufficient material
+  - Threefold repetition
+- Draw offers with 30-second timeout
+- Resignation handling
+
+### Rating System
+- Elo-like rating system (100-3500 range)
+- ±20 rating points per win/loss
+- Rating adjustments for checkmate and resignation
+
+### Infrastructure
+- Redis for session management and draw offers
+- WebSocket namespaces for authenticated and guest users
+- RESTful API endpoints for game management
+- Modular TypeScript architecture
 
 
 ## 🛠️ Tech Stack
@@ -71,14 +97,20 @@ generated/       # Generated Prisma client
 
 ### Game Events
 
-| Event         | Description                                                                 |
-|---------------|-----------------------------------------------------------------------------|
-| `playerReady` | Player marks themselves as ready. Game starts when both players are ready.  |
-| `move`        | Make a chess move. Validates move, updates state, handles checkmate/draw.   |
-| `resign`      | Player resigns. Opponent wins, ratings updated.                             |
-| `drawOffer`   | Player offers a draw (stored in Redis, notifies both players).              |
-| `acceptDraw`  | Accept a draw offer. Game ends in draw, cleans up state.                    |
-| `rejectDraw`  | Reject a draw offer (notifies both players).                                |
+| Event         | Description                                                          | Response Events                               |
+|---------------|----------------------------------------------------------------------|----------------------------------------------|
+| `playerReady` | Join game room and mark as ready                                     | `ready`, `gameStarted`                        |
+| `move`        | Make a chess move (includes validation)                              | `moveMade`, `gameEnded` (if game ends)        |
+| `resign`      | Resign current game                                                  | `resigned`, `gameEnded`                       |
+| `drawOffer`   | Offer a draw to opponent                                            | `drawOffered`                                 |
+| `acceptDraw`  | Accept opponent's draw offer                                        | `drawAccepted`, `gameEnded`                   |
+| `rejectDraw`  | Reject opponent's draw offer                                        | `drawRejected`                                |
+
+### Game End Conditions
+- Checkmate: Winner's rating +20, loser's rating -20
+- Resignation: Winner's rating +20, loser's rating -20
+- Draw (by agreement): No rating change
+- Draw (by stalemate/insufficient material/threefold repetition): No rating change
 
 ### Error Handling
 All events emit `gameError` on failure with a descriptive message.
@@ -95,10 +127,27 @@ All events emit `gameError` on failure with a descriptive message.
 
 
 
-## 📝 Notes
-- Draw offers are managed with Redis and expire after a timeout
-- Game state is validated and updated on every move
-- Ratings are updated on checkmate and resignation
-- All socket events require the user to be a player in the game
+## 📝 Technical Notes
+
+### Game State Management
+- FEN notation used for board state persistence
+- Move validation using chess.js library
+- Game moves history tracked in database
+- Automatic cleanup of game rooms on game end
+
+### Authentication & Security
+- Separate WebSocket namespaces for authenticated and guest users
+- Socket authentication middleware using JWT tokens
+- Player verification for all game actions
+
+### Redis Usage
+- Draw offers stored with 30-second expiration
+- Session management for authenticated users
+- Real-time game state synchronization
+
+### Rating System
+- Bounded Elo-like system (100-3500)
+- Fixed 20-point increment/decrement
+- Rating updates only on decisive results (checkmate/resignation)
 
 ---

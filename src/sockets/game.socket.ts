@@ -7,6 +7,42 @@ import { Chess } from "chess.js";
 const gameSocket = (io: Namespace, socket: Socket) => {
 
   /**
+   * Helper function to update cached game state
+   */
+  const updateCachedGame = async (gameId: string, updates: any) => {
+    const cachedGame = await redisClient.get(`game:${gameId}`);
+    if (cachedGame) {
+      const game = JSON.parse(cachedGame);
+      const updatedGame = { ...game, ...updates };
+      await redisClient.set(`game:${gameId}`, JSON.stringify(updatedGame), 'EX', 1800);
+      return updatedGame;
+    }
+    return null;
+  };
+
+  /**
+   * Helper function to reconcile cached game with database when game ends
+   */
+  const reconcileGameOnEnd = async (gameId: string, finalUpdates: any) => {
+    const cachedGame = await redisClient.get(`game:${gameId}`);
+    if (cachedGame) {
+      const game = JSON.parse(cachedGame);
+      
+      // Update database with final game state
+      await prisma.game.update({
+        where: { id: gameId },
+        data: {
+          boardState: game.boardState,
+          moves: game.moves,
+          ...finalUpdates
+        }
+      });
+
+      await redisClient.del(`game:${gameId}`);
+    }
+  };
+
+  /**
    * Handles the playerReady event.
    * This event is triggered when a player indicates they are ready to play.
    * If both players are ready, the game is started.
@@ -14,12 +50,14 @@ const gameSocket = (io: Namespace, socket: Socket) => {
   socket.on('playerReady', async (data: { gameId: string }) => {
     try {
       const { gameId } = data;
-      const game = await prisma.game.findUnique({ where: { id: gameId }});
-      if (!game) {
-        socket.emit("gameError", { message: 'Game not found' });
+      const cachedGame = await redisClient.get(`game:${gameId}`);
+      
+      if (!cachedGame) {
+        socket.emit("gameError", { message: 'Game has expired' });
         return;
       }
 
+      const game = JSON.parse(cachedGame);
       const userId = socket.data.userId;
       if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
         socket.emit("gameError", { message: 'You are not a player in this game' });
@@ -32,13 +70,6 @@ const gameSocket = (io: Namespace, socket: Socket) => {
       // verify if both players are ready and start the game
       const sockets = await io.in(gameId).fetchSockets();
       if (sockets.length === 2) {
-        await prisma.game.update({
-          where: { id: gameId },
-          data: {
-            status: 'ACTIVE'
-          }
-        });
-
         socket.emit("gameStarted", { message: "Game has started" });
       }
     } catch (err: any) {
@@ -48,23 +79,20 @@ const gameSocket = (io: Namespace, socket: Socket) => {
 
   /**
    * Handles the move event.
-   * Validates the move, updates the game state, and notifies players.
-   * Handles checkmate, draw, and invalid moves.
-  */
+   * Validates the move, updates the cached game state, and notifies players.
+   * Only reconciles with database when game ends.
+   */
   socket.on('move', async (data: { gameId: string, move: string }) => {
     try {
       const { gameId, move } = data;
-
-      const game = await prisma.game.findUnique({ where: { id: gameId }});
-      if (!game) {
-        socket.emit("gameError", { message: 'Game not found' });
+      const cachedGame = await redisClient.get(`game:${gameId}`);
+      
+      if (!cachedGame || !socket.rooms.has(gameId)) {
+        socket.emit("gameError", { message: 'Game has expired' });
         return;
       }
 
-      if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
-        socket.emit("gameError", { message: 'Game is not active' });
-        return;
-      }
+      const game = JSON.parse(cachedGame);
 
       const userId = socket.data.userId;
       if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
@@ -95,13 +123,17 @@ const gameSocket = (io: Namespace, socket: Socket) => {
         return;
       }
 
+      // Update cached game state
+      const updatedGameMoves = game.moves === null ? move : game.moves + ` ${move}`;
+      await updateCachedGame(gameId, {
+        boardState: chess.fen(),
+        moves: updatedGameMoves
+      });
+
+      // Check for game ending conditions
       if (chess.isStalemate() || chess.isInsufficientMaterial() || chess.isThreefoldRepetition()) {
-        await prisma.game.update({
-          where: { id: gameId },
-          data: {
-            status: 'DRAW',
-            boardState: chess.fen()
-          }
+        await reconcileGameOnEnd(gameId, {
+          result: 'DRAW'
         });
 
         io.to(gameId).emit("gameEnded", {
@@ -138,12 +170,14 @@ const gameSocket = (io: Namespace, socket: Socket) => {
           loser.rating - chessConstants.RATING_INCREMENT, chessConstants.MIN_ELO_RATING);
 
         await prisma.$transaction([
+          // Reconcile game state with database
           prisma.game.update({
             where: { id: gameId },
             data: {
-              status: 'CHECKMATE',
-              winner: { connect: { id: winnerId }},
-              boardState: chess.fen()
+              boardState: chess.fen(),
+              moves: updatedGameMoves,
+              result: 'CHECKMATE',
+              winner: { connect: { id: winnerId }}
             }
           }),
           prisma.user.update({
@@ -159,6 +193,9 @@ const gameSocket = (io: Namespace, socket: Socket) => {
             }
           })
         ]);
+
+        // Remove from cache
+        await redisClient.del(`game:${gameId}`);
 
         io.to(gameId).emit("moveMade", {
           move,
@@ -176,16 +213,6 @@ const gameSocket = (io: Namespace, socket: Socket) => {
 
         io.in(gameId).socketsLeave(gameId);
       } else {
-        const updatedGameMoves = game.moves === null ? move : game.moves + ` ${move}`;
-
-        await prisma.game.update({
-          where: { id: gameId },
-          data: {
-            boardState: chess.fen(),
-            moves: updatedGameMoves
-          }
-        });
-
         io.to(gameId).emit("moveMade", {
           move,
           boardState: chess.fen(),
@@ -200,23 +227,20 @@ const gameSocket = (io: Namespace, socket: Socket) => {
 
   /**
    * Handles resigning from a game.
-   * When a user resigns, they are removed from the room and the game data is updated.
+   * When a user resigns, they are removed from the room and the game data is reconciled with database.
    * The other player is marked as the winner, and the ratings of both players are updated
    */
   socket.on('resign', async (data: { gameId: string }) => {
     try {
       const { gameId } = data;
-      const game = await prisma.game.findUnique({ where: { id: gameId }});
-      if (!game) {
+      const cachedGame = await redisClient.get(`game:${gameId}`);
+
+      if (!cachedGame || !socket.rooms.has(gameId)) {
         socket.emit('gameError', { message: 'Game not found' });
         return;
       }
 
-      if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
-        socket.emit('gameError', { message: 'Game is not active' });
-        return;
-      }
-
+      const game = JSON.parse(cachedGame);
       const userId = socket.data.userId;
       if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
         socket.emit("gameError", { message: 'You are not a player in this game' });
@@ -249,10 +273,13 @@ const gameSocket = (io: Namespace, socket: Socket) => {
       const newRating = Math.max(user.rating - 20, 100);
 
       await prisma.$transaction([
+        // Reconcile final game state
         prisma.game.update({
           where: { id: gameId },
           data: {
-            status: "RESIGN",
+            boardState: game.boardState,
+            moves: game.moves,
+            result: "RESIGN",
             winner: { connect: { id: otherPlayerId }}
           }
         }),
@@ -269,6 +296,9 @@ const gameSocket = (io: Namespace, socket: Socket) => {
           }
         })
       ]);
+
+      // Remove from cache
+      await redisClient.del(`game:${gameId}`);
 
       io.to(gameId).emit("resigned", {
         message: `${user.username} has resigned`,
@@ -296,12 +326,13 @@ const gameSocket = (io: Namespace, socket: Socket) => {
   socket.on('drawOffer', async (data: { gameId: string }) => {
     try {
       const { gameId } = data;
-      const game = await prisma.game.findUnique({ where: { id: gameId }});
-      if (!game) {
-        socket.emit('gameError', { message: 'Game not found' });
+      const cachedGame = await redisClient.get(`game:${gameId}`);
+      if (!cachedGame) {
+        socket.emit('gameError', { message: 'Game has expired' });
         return;
       }
 
+      const game = JSON.parse(cachedGame);
       if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
         socket.emit('gameError', { message: 'Game is not active' });
         return;
@@ -336,24 +367,17 @@ const gameSocket = (io: Namespace, socket: Socket) => {
   /**
    * Handles accepting a draw offer.
    * This event is triggered when a player accepts a draw offer.
-   * It checks if the game exists, if the user is a player in that game,
-   * and if the game is active. If all conditions are met, it updates the game status to 'DRAW',
-   * removes the draw offer from Redis, and emits a 'drawAccepted' event to all players in the game room.
-   * Finally, it leaves the game room for both players.
+   * It reconciles the cached game state with the database and ends the game.
    */
   socket.on('acceptDraw', async (data: { gameId: string }) => {
     const { gameId } = data;
-    const game = await prisma.game.findUnique({ where: { id: gameId }});
-    if (!game) {
-      socket.emit('gameError', { message: 'Game not found' });
+    const cachedGame = await redisClient.get(`game:${gameId}`);
+    if (!cachedGame || !socket.rooms.has(gameId)) {
+      socket.emit('gameError', { message: 'Game has expired' });
       return;
     }
 
-    if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
-      socket.emit('gameError', { message: 'Game is not active' });
-      return;
-    }
-
+    const game = JSON.parse(cachedGame);
     const userId = socket.data.userId;
     if (userId !== game?.blackPlayerId && userId !== game?.whitePlayerId) {
       socket.emit("gameError", { message: 'You are not a player in this game' });
@@ -375,11 +399,8 @@ const gameSocket = (io: Namespace, socket: Socket) => {
       return;
     }
 
-    await prisma.game.update({
-      where: { id: gameId },
-      data: {
-        status: 'DRAW',
-      }
+    await reconcileGameOnEnd(gameId, {
+      result: 'DRAW'
     });
 
     await redisClient.del(`drawOffer:${gameId}`);
@@ -404,12 +425,13 @@ const gameSocket = (io: Namespace, socket: Socket) => {
    */
   socket.on('rejectDraw', async (data: { gameId: string }) => {
     const { gameId } = data;
-    const game = await prisma.game.findUnique({ where: { id: gameId }});
-    if (!game) {
-      socket.emit('gameError', { message: 'Game not found' });
+    const cachedGame = await redisClient.get(`game:${gameId}`);
+    if (!cachedGame) {
+      socket.emit("gameError", { message: 'Game has expired' });
       return;
     }
-
+    
+    const game = JSON.parse(cachedGame);
     if (game.status !== 'ACTIVE' || !socket.rooms.has(gameId)) {
       socket.emit('gameError', { message: 'Game is not active' });
       return;

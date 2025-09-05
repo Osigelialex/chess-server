@@ -5,6 +5,7 @@ import { chessConstants } from "../utils/constants";
 import { plainToInstance } from "class-transformer";
 import { GameCreatedResponseDto } from "../dto/game.dto";
 import { HandleErrors } from "../utils/decorators";
+import { redisClient } from "../config/redis.config";
 
 export default class GameService {
 
@@ -83,6 +84,8 @@ export default class GameService {
       throw new BadRequestError("Game is already full.");
     }
 
+    redisClient.set(`game:${game.id}`, JSON.stringify(game), 'EX', 1800);
+
     await prisma.game.update({
       where: { id: gameId },
       data: {
@@ -113,5 +116,27 @@ export default class GameService {
     }
 
     return plainToInstance(RetrieveGameResponseDto, game);
+  }
+
+  @HandleErrors()
+  public async getGameHistory(userId: string, limit: number, offset: number) {
+    const games = await prisma.game.findMany({
+      where: {
+        OR: [
+          { whitePlayerId: userId },
+          { blackPlayerId: userId }
+        ]
+      },
+      take: limit,
+      skip: offset
+    });
+
+    const gameDTOs = games.map(
+      game => plainToInstance(RetrieveGameResponseDto, game));
+
+    return {
+      games: gameDTOs,
+      totalCount: gameDTOs.length
+    }
   }
 }

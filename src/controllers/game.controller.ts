@@ -2,9 +2,10 @@ import GameService from "../service/game.service";
 import { Response } from "express";
 import { AuthenticatedRequest } from "../interfaces";
 import { StatusCodes } from "http-status-codes";
+import { paginate } from "../utils/pagination";
 
 export default class GameController {
-  constructor(private readonly gameService: GameService) {}
+  constructor(private readonly gameService: GameService) { }
 
   public createGame = async (request: AuthenticatedRequest, response: Response) => {
     const userId = request.user?.id;
@@ -33,5 +34,14 @@ export default class GameController {
       status: 'success',
       data: game
     });
+  }
+
+  public gameHistory = async (request: AuthenticatedRequest, response: Response) => {
+    const limit = Math.min(Number(request.query.limit) || 10, 100);
+    const offset = Math.max(Number(request.query.offset) || 0, 0);
+    const userId = request.user?.id;
+
+    const gameHistory = await this.gameService.getGameHistory(userId!, limit, offset);
+    return paginate(request, response, limit, offset, gameHistory.games);
   }
 }

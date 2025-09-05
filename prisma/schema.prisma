@@ -19,7 +19,7 @@ model User {
   username        String      @unique
   email           String      @unique
   password        String
-  rating          Int        @default(1000)
+  rating          Int         @default(1000)
   bio             String?
   createdAt       DateTime    @default(now())
   winningGames    Game[]      @relation("Winner")
@@ -31,20 +31,18 @@ model Game {
   id              String      @id @default(uuid()) @db.Uuid
   boardState      String
   moves           String?      
-  status          Status      @default(WAITING)
+  result          Result?      
   timeControl     String
   createdAt       DateTime    @default(now())
-  whitePlayer     User?        @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  whitePlayer     User?       @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
   whitePlayerId   String?     @db.Uuid
-  blackPlayer     User?        @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  blackPlayer     User?       @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
   blackPlayerId   String?     @db.Uuid
-  winner          User?        @relation("Winner", fields: [winnerId], references: [id])
+  winner          User?       @relation("Winner", fields: [winnerId], references: [id])
   winnerId        String?     @db.Uuid
 }
 
-enum Status {
-  WAITING
-  ACTIVE
+enum Result {
   CHECKMATE
   RESIGN
   DRAW

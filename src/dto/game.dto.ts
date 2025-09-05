@@ -35,7 +35,7 @@ export class RetrieveGameResponseDto {
   @Expose()
   boardState: string;
   @Expose()
-  status: string;
+  result: string;
   @Expose()
   @Type(() => UserResponseDto)
   whitePlayer: UserResponseDto;

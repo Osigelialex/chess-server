@@ -12,6 +12,7 @@ const gameService = new GameService();
 const gameController = new GameController(gameService);
 
 router.post('', authMiddleware, validateDto(CreateGameDto), gameController.createGame);
+router.get('/history', authMiddleware, gameController.gameHistory);
 router.post('/:gameId/join', authMiddleware, gameController.joinGame);
 router.get('/:gameId', authMiddleware, gameController.getGameById);
 
