@@ -25,7 +25,7 @@ export const errorHandler = (
   res.status(err.status || StatusCodes.INTERNAL_SERVER_ERROR).json({
     status: 'error',
     message: err.message || 'Internal Server Error',
-    stack: err.stack
+    errors: {}
   });
 };
 
@@ -37,5 +37,6 @@ export const notFoundHandler = (
   res.status(StatusCodes.NOT_FOUND).json({
     status: 'error',
     message: 'Resource not found',
+    errors: {}
   });
 };

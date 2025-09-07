@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes';
 import gameRoutes from './routes/game.routes';
 import { createSocketServer } from './sockets';
 import { createServer } from 'http';
+import swagger from "./swagger";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
 
 // Routes
+app.use("/api/docs", swagger);
 app.use("/api/auth", authRoutes);
 app.use("/api/games", gameRoutes);
 
