@@ -9,16 +9,18 @@ A modern backend server for online chess games, featuring real-time gameplay, pl
 
 ## 🚀 Features
 
-### Authentication
-- Secure user registration and login system
-- Guest mode support for casual games
-- Socket authentication middleware for secure WebSocket connections
+### Authentication & User Management
+- Secure user registration and login system with email/username
+- Guest mode support with unique game codes
+- JWT-based authentication for API and WebSocket connections
+- User profiles with rating, bio, and game history
 
 ### Game Management
-- Create games with customizable time controls (default: 5+0)
-- Choose side (white/black/random) when creating a game
-- Join existing games through unique game IDs
-- Persistent game state using Prisma ORM & PostgreSQL
+- Create games with customizable time controls
+- Choose side preference (white/black/random)
+- Join games via ID (authenticated) or game code (guests)
+- Separate game tracking for authenticated and guest users
+- Persistent game state with move history
 
 ### Gameplay
 - Real-time move validation using chess.js
@@ -35,20 +37,23 @@ A modern backend server for online chess games, featuring real-time gameplay, pl
 - ±20 rating points per win/loss
 - Rating adjustments for checkmate and resignation
 
-### Infrastructure
-- Redis for session management and draw offers
-- WebSocket namespaces for authenticated and guest users
-- RESTful API endpoints for game management
-- Modular TypeScript architecture
+### Infrastructure & API
+- Redis for session management and real-time features
+- Separate WebSocket namespaces for auth/guest users
+- Swagger/OpenAPI documentation
+- RESTful API with DTO validation
+- Modular TypeScript architecture with decorators
 
 
 ## 🛠️ Tech Stack
-- **Node.js** & **TypeScript** — Core server logic
-- **Express.js** — REST API framework
-- **Prisma ORM** — Database access & migrations
-- **PostgreSQL** — Main database
-- **Redis** — Caching & session management
-- **Socket.IO** — Real-time communication
+- **Node.js** & **TypeScript** — Core server logic with type safety
+- **Express.js** & **class-validator** — REST API with validation
+- **Prisma ORM** — Type-safe database access & migrations
+- **PostgreSQL** — Persistent game & user data storage
+- **Redis** — Real-time features & session management
+- **Socket.IO** — WebSocket communication with namespaces
+- **chess.js** — Chess move validation & game state
+- **Swagger/OpenAPI** — API documentation & testing
 
 
 ## 📁 Project Structure
@@ -125,15 +130,18 @@ All events emit `gameError` on failure with a descriptive message.
 
 ## 📝 Technical Notes
 
-### Game State Management
-- FEN notation used for board state persistence
-- Move validation using chess.js library
-- Game moves history tracked in database
-- Automatic cleanup of game rooms on game end
+### Game State & Data Model
+- FEN notation for board state persistence
+- Move history tracked separately from board state
+- Separate models for authenticated and guest games
+- PostgreSQL UUID for game and user identification
 
 ### Authentication & Security
-- Socket authentication middleware using JWT tokens
-- Player verification for all game actions
+- JWT-based authentication flow
+- Separate WebSocket namespaces for auth/guest users
+- DTO-based request validation
+- Middleware for socket and HTTP auth
+- Password hashing with bcrypt
 
 ### Redis Usage
 - Draw offers stored with 30-second expiration
