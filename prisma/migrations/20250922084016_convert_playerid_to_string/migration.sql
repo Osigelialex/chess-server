@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "GuestGame" ALTER COLUMN "whitePlayerId" SET DATA TYPE TEXT,
+ALTER COLUMN "blackPlayerId" SET DATA TYPE TEXT;

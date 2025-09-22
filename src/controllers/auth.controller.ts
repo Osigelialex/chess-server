@@ -2,13 +2,22 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import AuthService from "../service/auth.service";
 import { AuthenticatedRequest } from "../interfaces";
+import config from "../config/config";
+import { chessConstants } from "../utils/constants";
 
 export default class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   public signup = async (request: Request, response: Response) => {
     const res = await this.authService.signup(request.body);
-    response.status(StatusCodes.CREATED).json({
+    const { refreshToken } = res;
+
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: config.nodeEnv === 'production',
+      maxAge: chessConstants.REFRESH_TOKEN_MAX_AGE
+    }).status(StatusCodes.CREATED).json({
       status: 'success',
       message: 'Signed up sucessfully',
       data: res
@@ -17,11 +26,18 @@ export default class AuthController {
 
   public login = async (request: Request, response: Response) => {
     const res = await this.authService.login(request.body);
-    response.status(StatusCodes.OK).json({
+    const { refreshToken } = res;
+
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: config.nodeEnv === 'production',
+      maxAge: chessConstants.REFRESH_TOKEN_MAX_AGE
+    }).status(StatusCodes.OK).json({
       status: 'success',
       message: 'Logged in successfully',
       data: res
-    })
+    });
   }
 
   public refresh = async (request: Request, response: Response) => {

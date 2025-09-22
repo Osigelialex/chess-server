@@ -121,10 +121,6 @@ All events emit `gameError` on failure with a descriptive message.
 - [x] Socket setup
 - [x] Core chess logic, move validation, resign, draw offers
 - [x] Rating system (Elo-like, with min/max bounds)
-- [ ] Guest match logic
-- [ ] Game history & statistics
-- [ ] Deployment instructions
-
 
 
 ## 📝 Technical Notes
@@ -136,7 +132,6 @@ All events emit `gameError` on failure with a descriptive message.
 - Automatic cleanup of game rooms on game end
 
 ### Authentication & Security
-- Separate WebSocket namespaces for authenticated and guest users
 - Socket authentication middleware using JWT tokens
 - Player verification for all game actions
 

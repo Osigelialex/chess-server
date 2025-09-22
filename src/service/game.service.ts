@@ -1,4 +1,4 @@
-import { CreateGameDto, RetrieveGameResponseDto } from "../dto/game.dto";
+import { CreateGameDto, RetrieveGameResponseDto, CreateGuestGameDto } from "../dto/game.dto";
 import prisma from "../config/db.config";
 import { ServerError, NotFoundError, BadRequestError } from "../utils/exceptions";
 import { chessConstants } from "../utils/constants";
@@ -6,6 +6,8 @@ import { plainToInstance } from "class-transformer";
 import { GameCreatedResponseDto } from "../dto/game.dto";
 import { HandleErrors } from "../utils/decorators";
 import { redisClient } from "../config/redis.config";
+import crypto, { randomUUID } from 'crypto';
+import { generateToken } from "../utils/helpers";
 
 export default class GameService {
 
@@ -47,6 +49,72 @@ export default class GameService {
     } catch (error) {
       throw new ServerError("Could not create game at this time. Please try again later.");
     }
+  }
+
+  @HandleErrors()
+  public async createGuestGame(dto: CreateGuestGameDto) {
+    const { sideToPlay } = dto;
+    const boardState = chessConstants.INITIAL_FEN_POSITION;
+    const gameData = {
+      boardState: boardState,
+      code: crypto.randomBytes(7).toString('hex')
+    }
+
+    const uniquePlayerId = randomUUID()
+    if (sideToPlay === 'random') {
+      const randomSide = Math.random() < 0.5 ? 'white' : 'black';
+      if (randomSide === 'white') {
+        gameData['whitePlayerId'] = uniquePlayerId;
+      } else {
+        gameData['blackPlayerId'] = uniquePlayerId;
+      }
+    } else if (sideToPlay === 'white') {
+      gameData['whitePlayerId'] = uniquePlayerId;
+    } else {
+      gameData['blackPlayerId'] = uniquePlayerId;
+    }
+
+    try {
+      const game = await prisma.guestGame.create({ data: gameData });
+      return { id: game.id, code: game.code, jwt: generateToken(uniquePlayerId) }
+    } catch (error) {
+      throw new ServerError("Could not create game at this time. Please try again later.");
+    }
+  }
+
+  @HandleErrors()
+  public async joinGuestGame(code: string) {
+    const game = await prisma.guestGame.findUnique({ where: { code } });
+
+    if (!game) {
+      throw new NotFoundError("Game not found.");
+    }
+
+    const uniquePlayerId = randomUUID();
+    if (game.whitePlayerId === null) {
+      game.whitePlayerId = uniquePlayerId
+    } else if (game.blackPlayerId === null) {
+      game.blackPlayerId = uniquePlayerId;
+    } else {
+      throw new BadRequestError("Game is already full.");
+    }
+
+    redisClient.set(`game:${game.id}`, JSON.stringify(game), 'EX', 1800);
+
+    try {
+      await prisma.guestGame.update({
+        where: { id: game.id },
+        data: {
+          whitePlayerId: game.whitePlayerId,
+          blackPlayerId: game.blackPlayerId
+        }
+      });
+    } catch (error) {
+      console.log(error);
+      throw new ServerError("Could not join game at this time. Please try again later.");
+    };
+
+    return { id: game.id, jwt: generateToken(uniquePlayerId) }
   }
 
   /**

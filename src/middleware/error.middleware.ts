@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { ValidationError } from '../utils/exceptions';
+import config from '../config/config';
 
 export interface AppError extends Error {
   status?: number;
@@ -25,7 +26,8 @@ export const errorHandler = (
   res.status(err.status || StatusCodes.INTERNAL_SERVER_ERROR).json({
     status: 'error',
     message: err.message || 'Internal Server Error',
-    errors: {}
+    errors: {},
+    stack: config.nodeEnv === 'production' ? undefined : err.stack
   });
 };
 

@@ -42,6 +42,17 @@ model Game {
   winnerId        String?     @db.Uuid
 }
 
+model GuestGame {
+  id              String      @id @default(uuid()) @db.Uuid
+  boardState      String
+  moves           String?
+  code            String      @unique
+  result          Result?
+  createdAt       DateTime    @default(now())
+  whitePlayerId   String?     
+  blackPlayerId   String?     
+}
+
 enum Result {
   CHECKMATE
   RESIGN

@@ -8,10 +8,14 @@ import gameRoutes from './routes/game.routes';
 import { createSocketServer } from './sockets';
 import { createServer } from 'http';
 import swagger from "./swagger";
+import config from './config/config';
 
 const app = express();
 
-app.use(cors())
+app.use(cors({
+  origin: config.frontendUrl,
+  credentials: true
+}));
 app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())

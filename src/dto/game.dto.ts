@@ -12,6 +12,11 @@ export class CreateGameDto {
   sideToPlay: SideToPlay;
 }
 
+export class CreateGuestGameDto {
+  @IsEnum(SideToPlay)
+  sideToPlay: SideToPlay;
+}
+
 @Exclude()
 export class GameCreatedResponseDto {
   @Expose()

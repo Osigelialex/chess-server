@@ -13,6 +13,7 @@ interface Config {
   redisDb: number;
   redisUrl: string;
   environment: string;
+  frontendUrl: string;
 }
 
 const config: Config = {
@@ -25,7 +26,8 @@ const config: Config = {
   redisPassword: process.env.REDIS_PASSWORD || undefined,
   redisDb: Number(process.env.REDIS_DB) || 0,
   redisUrl: process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`,
-  environment: process.env.ENVIRONMENT || 'dev'
+  environment: process.env.ENVIRONMENT || 'dev',
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173"
 };
 
 export default config;

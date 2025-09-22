@@ -15,8 +15,6 @@ export const createSocketServer = (server: any) => {
   });
 
   const authNamespace = socketServer.of('/auth');
-  const guestNamespace = socketServer.of('/guest');
-
   authNamespace.use(socketAuthMiddleware);
   authNamespace.on("connection", (socket) => {
     console.log(`[AUTH] New client connected: ${socket.id}`);
@@ -28,6 +26,8 @@ export const createSocketServer = (server: any) => {
     });
   });
 
+  const guestNamespace = socketServer.of('/guest');
+  guestNamespace.use(socketAuthMiddleware);
   guestNamespace.on("connection", (socket) => {
     console.log(`[GUEST] New client connected: ${socket.id}`);
 

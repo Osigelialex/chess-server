@@ -5,4 +5,5 @@ export const chessConstants = {
   DRAW_OFFER_TIMEOUT: 30,
   MIN_ELO_RATING: 100,
   MAX_ELO_RATING: 3500,
+  REFRESH_TOKEN_MAX_AGE: 7 * 24 * 60 * 60 * 1000
 }

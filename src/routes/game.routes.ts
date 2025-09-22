@@ -2,7 +2,7 @@ import express from 'express';
 import GameController from '../controllers/game.controller';
 import GameService from '../service/game.service';
 import { validateDto } from '../middleware/validation.middleware';
-import { CreateGameDto } from '../dto/game.dto';
+import { CreateGameDto, CreateGuestGameDto } from '../dto/game.dto';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 const router = express.Router();
@@ -43,6 +43,39 @@ const gameController = new GameController(gameService);
  *         $ref: '#/components/responses/InternalServerError'
  */
 router.post('', authMiddleware, validateDto(CreateGameDto), gameController.createGame);
+
+/**
+ * @swagger
+ * /games/guest:
+ *   post:
+ *     tags:
+ *       - Games
+ *     summary: Create a new guest game
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateGuestGameDTO'
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *               properties:
+ *                 data:
+ *                   $ref: '#/components/schemas/GuestGameCreatedResponseDTO'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
+router.post('/guest', validateDto(CreateGuestGameDto), gameController.createGuestGame);
 
 /**
  * @swagger
@@ -105,7 +138,10 @@ router.get('/history', authMiddleware, gameController.gameHistory);
  *           application/json:
  *              schema:
  *                $ref: '#/components/schemas/ApiResponse'
- *       400: 
+ *                properties:
+ *                  data:
+ *                    $ref: '#/components/schemas/JoinedGuestGameResponseDTO'
+ *       400:
  *         $ref: '#/components/responses/BadRequest'
  *       404:
  *         $ref: '#/components/responses/NotFound'
@@ -113,6 +149,35 @@ router.get('/history', authMiddleware, gameController.gameHistory);
  *         $ref: '#/components/responses/InternalServerError'
  */
 router.post('/:gameId/join', authMiddleware, gameController.joinGame);
+
+/**
+ * @swagger
+ * /games/{code}/guest/join:
+ *   post:
+ *     tags:
+ *       - Games
+ *     summary: Join a player to a guest game
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: unique code of game to join
+ *     responses:
+ *       200:
+ *         content:
+ *           application/json:
+ *              schema:
+ *                $ref: '#/components/schemas/ApiResponse'
+ *       400: 
+ *         $ref: '#/components/responses/BadRequest'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalServerError'
+ */
+router.post('/:code/guest/join', gameController.joinGuestGame);
 
 /**
  * @swagger

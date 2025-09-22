@@ -131,6 +131,20 @@ const options: swaggerJSDoc.Options = {
             sideToPlay: { type: "string" }
           }
         },
+        CreateGuestGameDTO: {
+          type: 'object',
+          properties: {
+            sideToPlay: { type: "string" }
+          }
+        },
+        GuestGameCreatedResponseDTO: {
+          type: 'object',
+          properties: {
+            id: { type: "string" },
+            jwt: { type: "string" },
+            code: { type: "string" },
+          }
+        },
         GameCreatedResponseDTO: {
           type: 'object',
           properties: {
@@ -139,6 +153,13 @@ const options: swaggerJSDoc.Options = {
             boardState: { type: "string" },
             status: { type: "string" },
             createdAt: { type: "string" }
+          }
+        },
+        JoinedGuestGameResponseDTO: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            jwt: { type: "string" }
           }
         },
         RetrieveGameResponseDTO: {

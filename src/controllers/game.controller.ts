@@ -3,6 +3,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "../interfaces";
 import { StatusCodes } from "http-status-codes";
 import { paginate } from "../utils/pagination";
+import { Request } from "express";
 
 export default class GameController {
   constructor(private readonly gameService: GameService) { }
@@ -13,6 +14,25 @@ export default class GameController {
     response.status(StatusCodes.CREATED).json({
       status: 'success',
       message: 'Game created successfully',
+      data: res
+    });
+  }
+
+  public createGuestGame = async (request: Request, response: Response) => {
+    const res = await this.gameService.createGuestGame(request.body);
+    response.status(StatusCodes.CREATED).json({
+      status: 'success',
+      message: 'Game created successfully',
+      data: res
+    });
+  }
+
+  public joinGuestGame = async (request: Request, response: Response) => {
+    const code = request.params.code;
+    const res = await this.gameService.joinGuestGame(code);
+    response.status(StatusCodes.OK).json({
+      status: 'success',
+      message: 'Joined game successfully',
       data: res
     });
   }
