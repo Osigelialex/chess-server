@@ -4,6 +4,7 @@ import GameService from '../service/game.service';
 import { validateDto } from '../middleware/validation.middleware';
 import { CreateGameDto, CreateGuestGameDto } from '../dto/game.dto';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { guestAuthMiddleware } from '../middleware/guestAuth.middleware';
 
 const router = express.Router();
 const gameService = new GameService();
@@ -210,5 +211,7 @@ router.post('/:code/guest/join', gameController.joinGuestGame);
  *         $ref: '#/components/responses/InternalServerError'
  */
 router.get('/:gameId', authMiddleware, gameController.getGameById);
+
+router.get('/code/:code', guestAuthMiddleware, gameController.getGuestGameByCode);
 
 export default router;

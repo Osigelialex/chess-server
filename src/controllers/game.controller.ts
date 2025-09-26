@@ -1,6 +1,6 @@
 import GameService from "../service/game.service";
 import { Response } from "express";
-import { AuthenticatedRequest } from "../interfaces";
+import { AuthenticatedRequest, GuestAuthRequest } from "../interfaces";
 import { StatusCodes } from "http-status-codes";
 import { paginate } from "../utils/pagination";
 import { Request } from "express";
@@ -18,7 +18,8 @@ export default class GameController {
     });
   }
 
-  public createGuestGame = async (request: Request, response: Response) => {
+  public createGuestGame = async (request: AuthenticatedRequest, response: Response) => {
+    const userId = request.user?.id;
     const res = await this.gameService.createGuestGame(request.body);
     response.status(StatusCodes.CREATED).json({
       status: 'success',
@@ -33,6 +34,17 @@ export default class GameController {
     response.status(StatusCodes.OK).json({
       status: 'success',
       message: 'Joined game successfully',
+      data: res
+    });
+  }
+
+  public getGuestGameByCode = async (request: GuestAuthRequest, response: Response) => {
+    const code = request.params.code;
+    const playerId = request.playerId;
+    const res = await this.gameService.getGuestGameByCode(playerId!, code);
+    response.status(StatusCodes.OK).json({
+      status: 'success',
+      message: 'Game Fetched successfully',
       data: res
     });
   }

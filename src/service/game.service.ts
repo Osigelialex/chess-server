@@ -8,6 +8,7 @@ import { HandleErrors } from "../utils/decorators";
 import { redisClient } from "../config/redis.config";
 import crypto, { randomUUID } from 'crypto';
 import { generateToken } from "../utils/helpers";
+import config from "../config/config";
 
 export default class GameService {
 
@@ -184,6 +185,32 @@ export default class GameService {
     }
 
     return plainToInstance(RetrieveGameResponseDto, game);
+  }
+
+  @HandleErrors()
+  public async getGuestGameByCode(playerId: string, code: string) {
+    const game = await prisma.guestGame.findUnique({
+      where: { code }
+    });
+
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+    let sideToPlay;
+    if (game.whitePlayerId === playerId) {
+      sideToPlay = 'white';
+    } else if (game.blackPlayerId === playerId) {
+      sideToPlay = 'black';
+    } else {
+      throw new BadRequestError("You are not a player in this game");
+    }
+
+    return {
+      id: game.id,
+      sideToPlay,
+      link: `${config.frontendUrl}/${code}`
+    }    
   }
 
   @HandleErrors()

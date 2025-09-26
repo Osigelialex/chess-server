@@ -13,3 +13,7 @@ export interface DecodedToken {
 export interface AuthenticatedRequest extends Request {
   user?: User;
 }
+
+export interface GuestAuthRequest extends Request {
+  playerId?: string;
+}

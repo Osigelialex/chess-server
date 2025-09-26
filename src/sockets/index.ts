@@ -33,7 +33,8 @@ export const createSocketServer = (server: any) => {
 
     registerGuestSocket(guestNamespace, socket);
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+      console.log(`Disconnected Because: ${reason}`);
       console.log(`[GUEST] Client disconnected: ${socket.id}`);
     });
   });
