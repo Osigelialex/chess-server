@@ -24,7 +24,6 @@ export const handlePlayerReady = async (io: Namespace, socket: Socket, data: { g
     }
 
     await socket.join(gameId);
-    const sockets = await io.in(gameId).fetchSockets();
 
     if (userId === game.blackPlayerId) {
       game.blackPlayerReady = true;

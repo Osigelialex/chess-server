@@ -133,7 +133,7 @@ router.get('/profile', authMiddleware, authController.fetchProfile);
 /**
  * @swagger
  * /auth/logout:
- *   get:
+ *   post:
  *     tags:
  *       - Authentication
  *     summary: Logout a user

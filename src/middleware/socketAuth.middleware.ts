@@ -4,7 +4,7 @@ import { verifyToken } from "../utils/helpers";
 
 export const socketAuthMiddleware = (socket: io.Socket, next: (err?: any) => void) => {
   try {
-    const token = socket.handshake.headers.authorization;
+    const token = socket.handshake.auth.token;
 
     if (!token) {
       return next(new BadRequestError("Auth token not provided"));
